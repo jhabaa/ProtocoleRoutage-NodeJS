@@ -65,18 +65,58 @@ var headerToReturn = {'Content-Type' : 'text/html'};
 }*/
 
 //Redirection Load Balancing
-var client = true;
+/*var client = true;
 const targets = ['http://www.isib.be','http://www.google.be'];
-var newClient = function(req, res){
+var visits=0;
+/*var newClient = function(req, res){
     if (client == true){res.writeHead(302, {'Location': targets[0]});client = false;res.end();console.log("Client Connecté"+client);}
     else if (client == false){res.writeHead(302, {'Location': targets[1]});client = true;res.end();console.log("Client Connecté"+ client);}
     //console.log(res.socket.remoteAddress);
     console.log(req.rawHeaders);
+}*/
+
+//Pour la protection contre les attaques DDos, nous pouvons commencer par compter le nombre de fois que la fonction est lancée
+/*var newClient = function(req, res){
+    visits++;
+    console.log('We have : '+ visits + ' Visits');
+}
+setTimeout(checkConnectionsNumbers, 1000);*/
+
+//Application qui analyse la requête du client et affiche dans la console la methode, le user-agent l'url et le path seul
+/*var url = require('url');
+var newClient = function(req, res){
+    console.log(req.method);
+    console.log(req.headers["user-agent"]);
+    console.log(req.url);
+    console.log(url.parse(req.url).pathname);
+}*/
+
+//Application qui renvoit une page HTML différente en fonction des paramètres dans le header
+var url = require('url');
+/*var newClient = function(req, res){
+    htmlPage = '<HTML><body>';
+    htmlPage = htmlPage + 'Votre ordinateur est '+ url.parse(req.url).pathname + '</body></HTML>';
+    res.end(htmlPage);
+}*/
+
+//Application HTML qui donne un paramètre town et renvoie une page HTML avec le code postal de la ville demandée.
+var newClient = function(req, res){
+    var town = url.parse(req.url, true).query.town + '';
+    var postalCode = 1;
+    if (town=='Ixelles'){
+        postalCode = 1050;
+    }
+    if (town=='Bruxelles'){
+        postalCode = 1000;
+    }
+    if (town == 'Forest'){
+        postalCode = 1090;
+    }
+    var htmlPage = '<HTML><body> Bienvenue à '+town+' (' + postalCode+ ') </body></HTML>';
+    res.end(htmlPage);
 }
 
 
-
-const { copyFile } = require('fs');
 //Pour démarrer un serveur HTTP
 var http = require('http');
 var server = http.createServer(newClient);//Instantcier le serveur. En cas de connexion, newClient est lancé
