@@ -1,3 +1,8 @@
+var fs = require('fs');
+var http = require('http');
+const { chdir } = require('process');
+var path = require('path');
+
 //FS permet d'ouvrir et de lire des fichiers
 //readgilestream permet de mettre le contenu en variable
 //Ceci nous affiche le buffer du fichier
@@ -75,14 +80,18 @@ var visits=0;
     console.log(req.rawHeaders);
 }*/
 
+//=============================================================================================================================
 //Pour la protection contre les attaques DDos, nous pouvons commencer par compter le nombre de fois que la fonction est lancée
+//=============================================================================================================================
 /*var newClient = function(req, res){
     visits++;
     console.log('We have : '+ visits + ' Visits');
 }
 setTimeout(checkConnectionsNumbers, 1000);*/
 
+//=======================================================================================================================
 //Application qui analyse la requête du client et affiche dans la console la methode, le user-agent l'url et le path seul
+//=======================================================================================================================
 /*var url = require('url');
 var newClient = function(req, res){
     console.log(req.method);
@@ -91,15 +100,20 @@ var newClient = function(req, res){
     console.log(url.parse(req.url).pathname);
 }*/
 
+//==========================================================================================
 //Application qui renvoit une page HTML différente en fonction des paramètres dans le header
+//==========================================================================================
 var url = require('url');
+const { fail } = require('assert');
 /*var newClient = function(req, res){
     htmlPage = '<HTML><body>';
     htmlPage = htmlPage + 'Votre ordinateur est '+ url.parse(req.url).pathname + '</body></HTML>';
     res.end(htmlPage);
 }*/
 
-//Application HTML qui donne un paramètre town et renvoie une page HTML avec le code postal de la ville demandée.
+//===================================================================================================================
+/*Application HTML qui donne un paramètre town et renvoie une page HTML avec le code postal de la ville demandée.*/
+//===================================================================================================================
 var newClient = function(req, res){
     var town = url.parse(req.url, true).query.town + '';
     var postalCode = 1;
@@ -116,9 +130,209 @@ var newClient = function(req, res){
     res.end(htmlPage);
 }
 
+/*============================================================================================
+Application qui sauvegarde une valeur passée en paramètre dans un JSON
+==============================================================================================
+*/
+var SaveToJson = function(req, res){
+    //On prend le dernier score du joueur
+    var score = url.parse(req.url, true).query.highscore + '';
+    //On ecrit le résultat dans le nouveau fichier
+   /* var JsonSave = {
+        "scores":[
+                {"score":score}
+        ]
+    };
+    //On sauvegarde le fichier
+    scoreSaved = JSON.stringify(JsonSave);
+    //Et on enregistre sur le disque
+    fs.writeFileSync('./MyResults/scores.json', scoreSaved)*/
+    
+    // Si le fichier existe déjà...
+    var data = fs.readFileSync('./MyResults/scores.json');
+    const newFile = JSON.parse(data);
+    newFile.score = score
+    data = JSON.stringify(newFile);
+    fs.writeFileSync('./MyResults/scores.json', data)
+}
+//============================================================================================
+// Servie Web qui renvoie une reponse JSON qui donne le code postal d'une ville
+// spécifiée en paramètre de la requête.
+//============================================================================================
+var SendJSONToHTTP = function(request, response){
+    var town = url.parse(request.url, true).query.town;
+    //En fonction de la ville, on récupère le code postal, qu'on met en JSON
+    var postalCode = 1;
+    if (town=='Ixelles'){
+        postalCode = 1050;
+    }
+    if (town=='Bruxelles'){
+        postalCode = 1000;
+    }
+    if (town == 'Forest'){
+        postalCode = 1090;
+    }
+    //Creation du JSON
+    var adress = {"town":town , "adress": postalCode};
+    var JSONToSend = JSON.stringify(adress);
 
-//Pour démarrer un serveur HTTP
-var http = require('http');
-var server = http.createServer(newClient);//Instantcier le serveur. En cas de connexion, newClient est lancé
-server.listen(8080);//Preciser le port d'écoute
+    //Renvoi du JSON
+    response.writeHead(200, {'content-type': 'application/json'});
+    response.end(JSONToSend)
+}
+
+/** 
+==================================================================================================
+    Exercice Complémentaire
+    On renvoie l'heure et la date dans un certain format, un mot de passe, 
+    un mot traduit d'une langue vers une autre, une conversion de monnaie
+==============================================================================================
+ */
+
+/**
+ * ==============================================================================================
+ * Client HTTP vers google
+ * ==============================================================================================
+ */
+
+var toGoogle = function(req, res){
+    //On peut lancer avec localhost:8080/state, ou n'importe
+    var request ={
+        "host": "www.google.com",
+        "port": 80,
+        "path": "/index.html"
+    };
+    
+    var receiveResponsecallBack = function(response){
+        var str = '';
+        //Un chunk arrive... on l'ajoute au string
+        response.on('data',(chunk) => {
+            str += chunk
+        });
+        // Une fois la reponse complete acquise
+        response.on('end', (chunk) => {
+            //console.log(str); // Code HTML... Je crois qu'il y a du chunk avec
+            //console.log(str.toString('utf8')); //Idem ... c'est du HTML
+        });
+
+    }
+    
+    //Pour démarrer un serveur HTTP
+    var server = http.get(request, receiveResponsecallBack);
+    server.on('error', function(e){
+        console.log('error' + e.message);
+    });
+}
+
+/**
+ * ================================================================================================
+ * Utilisation des API
+ * ================================================================================================
+ */
+global.globalText = "Encore";
+
+var trainAPI = function(req, res){
+    global.final = "";
+    var request ={
+        "host": "api.irail.be",
+        "port": 80,
+        "path": "/liveboard/?id=BE.NMBS.008812005&lang=fr&format=json"
+    };
+    this.receiveResponsecallBack = function(response){
+        var str = '';
+        //Un chunk arrive... on l'ajoute au string
+        response.on('data',(chunk) => {
+            str += chunk
+        });
+        // Une fois la reponse complete acquise
+        response.on('end', (chunk) => {
+            //console.log(str); // Code HTML... Je crois qu'il y a du chunk avec
+            //console.log(str.toString('utf8')); //Idem ... c'est du HTML
+
+            //On a un string, on le tranforme en JSON. Le Json nous permet de dire qu'il s'agit de la liste des trains en depart de GN
+            var jsonAPI = JSON.parse(str);
+            //console.log(jsonAPI);
+            //Affichons l'horaire du premier départ
+            //console.log(jsonAPI["departures"]["departure"][0]["time"])
+            //res.on(jsonAPI["departures"]["departure"][0]["time"])
+            final = JSON.stringify(jsonAPI["departures"]["departure"][0]["time"]);
+            console.log(final);
+            // On enregistre le la valeur à recupérer dans un fichier. C'est mieux que les variables globales
+            fs.writeFile('./public/test.txt', final, { flag: 'a+' }, err => {})
+        }); 
+        return str;
+    }
+    //Pour démarrer un serveur HTTP
+    var server = http.get(request, receiveResponsecallBack);
+    server.on('error', function(e){
+        console.log('error' + e.message);
+    });
+}
+
+/**
+ * ====================================================================================
+ * Application WEB
+ * ====================================================================================
+ * 
+ */
+
+var APIRequestWeb = function(req, res){
+    //On commence par renvoyer la page d'accueuil
+    res.writeHead(200, {'content-type': 'text/html'})
+        // Chargement de la page d'acceuil
+    if(req.url === '/'){
+        fs.readFile("./public/index.html", "UTF-8", function(err, html){
+            res.writeHead(200, {"Content-Type": "text/html"});
+            res.end(html)
+        });
+        // Chargement du CSS
+    } else if(req.url.match("\.css$")){
+        var cssPath = path.join(__dirname, 'public', req.url);
+        var fileStream = fs.createReadStream(cssPath, "UTF-8");
+        res.writeHead(200, {"Content-Type": "text/css"});
+        fileStream.pipe(res);
+    }
+    if(req.url == '/state?'){
+        console.log("Game Over");
+        trainAPI();
+        // On l'écrit dans le HTML
+
+        const readHTML = fs.createReadStream('./public/index.html');
+        var writeHTML = fs.createWriteStream('./public/render.html');
+        readHTML.setEncoding('utf8');
+        readHTML.on('data', function(chunk){
+        var text = ""+chunk;
+        // On lit le fichier où nous avons stocké le code
+        var file = fs.readFileSync('./public/test.txt')
+        var texte = ""+file;
+        text = text.replace('#Response', file); //Il faut aussi remplacer la balise fermante. dans ce cas.
+        console.log(texte);
+        writeHTML.write(text);
+        res.end(text)
+        });
+
+    }
+}
+
+
+
+
+//Creation d'un serveur
+//var server = http.createServer();//Instantcier le serveur. En cas de connexion, newClient est lancé
+//server.listen(8080);//Preciser le port d'écoute
+/**
+ * ====================================================================
+ * Serveur de fichiers HTTP
+ ======================================================================
+ */
+
+
+
+
+/**
+ * ============================ Serveur ===============================
+ */
+var globalServer = http.createServer(APIRequestWeb)
+globalServer.listen(8080);
 console.log('Serveur démarré...');
+/**===================================================================== */
