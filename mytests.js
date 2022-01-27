@@ -234,7 +234,7 @@ global.globalText = "Encore";
 var trainAPI = function(req, res){
     global.final = "";
     var request ={
-        "host": "api.irail.be",
+        "host": "api2.binance.com",
         "port": 80,
         "path": "/liveboard/?id=BE.NMBS.008812005&lang=fr&format=json"
     };
@@ -255,10 +255,10 @@ var trainAPI = function(req, res){
             //Affichons l'horaire du premier départ
             //console.log(jsonAPI["departures"]["departure"][0]["time"])
             //res.on(jsonAPI["departures"]["departure"][0]["time"])
-            final = JSON.stringify(jsonAPI["departures"]["departure"][0]["time"]);
-            console.log(final);
+            //final = JSON.stringify(jsonAPI["departures"]["departure"][0]["time"]);
+            //console.log(final);
             // On enregistre le la valeur à recupérer dans un fichier. C'est mieux que les variables globales
-            fs.writeFile('./public/test.txt', final, { flag: 'a+' }, err => {})
+            fs.writeFile('./public/test.txt', jsonAPI, { flag: 'a+' }, err => {})
         }); 
         return str;
     }
@@ -327,7 +327,101 @@ var APIRequestWeb = function(req, res){
  */
 
 
+ /**
+  * ======================================================================
+  * PROXY
+  * ======================================================================
+  */
+ var ProxyWeb = function(req, res){
+     // On récupère les paramètres
+     var head = req.headers['host'];
+     var method = req.method;
+     var urlHost = req.url;
+     var headers = req.headers;
+     //on cree un nouvel objet
+     var options = {
+         hostname: req.headers['host'], port:80, path:url.parse(req.url).pathname, method: req.method, headers:req.headers
+     } 
+     
 
+     //On charge la page
+     //On commence par renvoyer la page d'accueuil
+    res.writeHead(200, {'content-type': 'text/html'})
+    // Chargement de la page d'acceuil
+    if(req.url === '/'){
+    fs.readFile("./public/index.html", "UTF-8", function(err, html){
+        res.writeHead(200, {"Content-Type": "text/html"});
+        //On donne les paramètres en log
+        console.log(head, method, urlHost, headers)
+        proxyRequest()
+        res.end(html)
+    });
+    // Chargement du CSS
+    }   
+    else if(req.url.match("\.css$")){
+    var cssPath = path.join(__dirname, 'public', req.url);
+    var fileStream = fs.createReadStream(cssPath, "UTF-8");
+    res.writeHead(200, {"Content-Type": "text/css"});
+    fileStream.pipe(res);
+        }
+ // On lance la requete avec les options définies plus haut
+    var proxyRequest = http.request(options, function(serverResponse){
+        console.log('STATUS:' + serverResponse.statusCode);
+        console.log('HEADERS:' + serverResponse.headers);
+        serverResponse.on('data', (chunk)=>{
+            console.log('CHUNK:' + chunk)
+            //On renvoie les données de au client à chaque fois
+            res.write(chunk, 'binary')
+            //Et on envoie l'en-tête
+            res.writeHTML(serverResponse.statusCode, serverResponse.headers);
+             //Une fois la transmission terminée on le dit au client
+             res.end("End");
+        });
+    });
+
+}
+
+
+
+/**
+ * ===============================================================================
+ * EXPRESS
+ ==========================================================================*/
+var express = require('express');
+const { get } = require('express/lib/response');
+var app = express();
+
+app.use('/', express.static("/Users/jean-hubert/Documents/GitHub/ProtocoleRoutage-NodeJS/public"));
+//Pour renvoyer l'heure
+app.get('/hour', function(req, res){
+    let timeOfDay = new Date()
+    var hour  = {
+        "hour": timeOfDay.getHours(),
+        "minutes": timeOfDay.getMinutes(),
+        "Seconds": timeOfDay.getSeconds()
+    }
+    res.send(hour);
+})
+
+app.get('/form', function(req, res){
+    let timeOfDay = new Date()
+    if (req.query.ville == "Bruxelles"){
+        res.send("1000")
+    }
+})
+
+app.get('/', function(req, res){
+    res.sendFile(index.html)
+})
+app.get('/state', function(req, res){
+    res.send('https://api2.binance.com/api/v3/ticker/24hr');
+})
+/**
+ * SERVEUR EXPRESSS====================================================
+ */
+//app.listen(3000, function(){
+//    console.log('Ecoute sur le port 3000');
+//})
 
 /**
  * ============================ Serveur ===============================
